@@ -1,0 +1,141 @@
+Option Explicit
+Dim str, Data As String
+Dim i, j, k, r, LR As Long
+Dim MyRNG As Range
+Sub importfile()
+'turn off alerts
+Application.DisplayAlerts = False
+On Error Resume Next
+'delete other worksheets
+Dim ws As Worksheet
+For Each ws In ThisWorkbook.Worksheets
+    If ws.Name <> "Sheet1" Then ws.Delete
+Next
+'turn on alerts
+Application.DisplayAlerts = True
+'clear cells for import
+Cells.Clear
+Range("A1").Activate
+Dim dataFile As String
+dataFile = InputBox("Enter Genome Text File :", "Please enter the file path of the Genome you want to evaluate ", "C:\Users\Allen\Desktop\data.txt")
+'OPEN TEXT FILE WITH GENOME SEQUENCE AND IMPORT LINE BY LINE DOWN COLUMN A
+Open dataFile For Input As #1
+r = 0
+Do Until EOF(1)
+    Line Input #1, Data
+    If r < 1048576 Then
+        ActiveCell.Offset(r, 0) = Data
+        r = r + 1
+    ElseIf r > 1048576 Then
+        MsgBox "File is too big at this time"
+        Exit Sub
+    End If
+Loop
+Close #1
+
+'GO DOWN CELLS AND SEPERATE EACH CHARACTER OF EACH CELL INTO SINGLE CELL
+str = Sheet1.Cells(1, 1).Value
+For j = 1 To Len(str)
+    Sheet1.Cells(j, 2).Value = UCase(Mid(str, j, 1))
+Next j
+
+'REMOVE IMPORTED LINE FEEDS
+Columns("A:A").Delete shift:=xlToLeft
+
+LR = Cells(Rows.count, 1).End(xlUp).Row
+Set MyRNG = Range(Cells(1, 1), Cells(LR, 2))
+
+'INSERT SKEW VALUES FOR NUCLEOTIDE SEQUENCE
+For i = 1 To LR + 1
+    If i = 1 Then
+        Cells(i, 2).Value = 0
+    Else
+        If Cells(i, 1).Value = "A" Or Cells(i, 1).Value = "T" Then Cells(i, 2).Value = Cells(i - 1, 2).Value
+        If Cells(i, 1).Value = "C" Then Cells(i, 2).Value = Cells(i - 1, 2).Value + 1
+        If Cells(i, 1).Value = "G" Then Cells(i, 2).Value = Cells(i - 1, 2).Value - 1
+    End If
+Next i
+
+'CLEAR PREVIOUS CHARTS
+Dim obj As Object
+For Each obj In ActiveSheet.Shapes
+    obj.Delete
+Next obj
+
+'INSERT SKEW CHART
+ActiveSheet.Shapes.AddChart2(227, xlLine).Select
+ActiveChart.SetSourceData Source:=MyRNG
+ActiveChart.ChartTitle.Delete
+ActiveChart.Axes(xlCategory).Delete
+ActiveChart.Axes(xlValue).MajorGridlines.Delete
+
+'INSERT VALUES FOR MIN AND MAX SKEW COUNTS AND POSITIONS
+Dim SkewRNG As Range
+LR = Cells(Rows.count, 1).End(xlUp).Row
+Set SkewRNG = Range(Cells(1, 2), Cells(LR, 2))
+
+'find count of min max skews
+Dim MinSkew, MaxSkew As Double
+MinSkew = Application.WorksheetFunction.Min(SkewRNG)
+Debug.Print MinSkew
+MaxSkew = Application.WorksheetFunction.Max(SkewRNG)
+Debug.Print MaxSkew
+
+'formatting
+Cells(1, 3).Value = "Number of Minimum Skews: "
+Cells(3, 3).Value = "Number of Maximum Skews: "
+Cells(2, 3).Value = "       At positions: "
+Cells(4, 3).Value = "       At positions: "
+Dim count As Long
+k = 3
+For count = 1 To LR
+    If Cells(count, 2).Value = MinSkew Then
+        Cells(2, k + 1) = count
+        Cells(1, 4) = Cells(1, 4) + 1
+        k = k + 1
+    ElseIf Cells(count, 2).Value = MaxSkew Then
+        Cells(4, k + 1) = count
+        Cells(3, 4) = Cells(3, 4) + 1
+        k = k + 1
+    End If
+Next
+Columns.AutoFit
+ReverseComplimentStrands
+End Sub
+Sub ReverseComplimentStrands()
+Application.DisplayAlerts = False
+On Error Resume Next
+'delete other worksheets
+Dim ws As Worksheet
+For Each ws In ThisWorkbook.Worksheets
+    If ws.Name <> "Sheet1" Then ws.Delete
+Next
+Application.DisplayAlerts = True
+Sheet1.Activate
+Sheets("Sheet1").Range(Cells(1, 1), Cells(Rows.count, 1)).Copy
+Sheets.Add
+Cells(1, 1).PasteSpecial xlPasteValues
+ActiveSheet.Name = "Reverse_Compliments"
+LR = Cells(Rows.count, 1).End(xlUp).Row
+'reverse patterns of c,t,a,g to get reverse of strand
+For i = 1 To LR + 1
+    If Cells(i, 1).Value = "A" Then Cells(i, 2).Value = "T"
+    If Cells(i, 1).Value = "T" Then Cells(i, 2).Value = "A"
+    If Cells(i, 1).Value = "C" Then Cells(i, 2).Value = "G"
+    If Cells(i, 1).Value = "G" Then Cells(i, 2).Value = "C"
+Next i
+'bottom now top to order as reverse compliment strand
+k = 0
+For j = LR To 1 Step -1
+    Cells(k + 1, 3) = Cells(j, 2)
+k = k + 1
+Next j
+'formatting
+Columns("B:B").Delete shift:=xlToLeft
+Range("A1:B1").Cells.Insert shift:=xlDown
+Cells(1, 1).Value = "Template Strand:       5' ---> 3'"
+Cells(1, 2).Value = "Complementary Strand:      3' ---> 5'"
+Columns.AutoFit
+'not enough columns to transpose
+'Range(Cells(1, 6), Cells(2, LR)) = Application.WorksheetFunction.Transpose(Range("A1:A" & LR, "C1:C" & LR))
+End Sub
