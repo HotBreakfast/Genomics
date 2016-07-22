@@ -1,0 +1,253 @@
+Option Explicit
+Dim str, Data As String
+Dim i, j, k, r, LR As Long
+Dim MyRNG As Range
+Sub openfile()
+'turn off alerts
+Application.DisplayAlerts = False
+
+On Error Resume Next
+'delete other worksheets
+Dim WS As Worksheet
+For Each WS In ThisWorkbook.Worksheets
+    If WS.Name <> "Sheet1" Then WS.Delete
+Next
+'turn on alerts
+Application.DisplayAlerts = True
+
+Sheet1.Activate
+Cells.Clear
+Range("A1").Select
+Dim FileNum As Integer
+Dim DataLine, DataFile As String
+'file path to where the data is stored in a text file for the string you are evaluating
+'DataFile = "H:\VB2016\data.txt"
+DataFile = "C:\Users\Allen\Desktop\Genome Stuff\data.txt"
+Dim r As Long
+r = 0
+FileNum = FreeFile()
+Open DataFile For Input As #1
+While Not EOF(FileNum)
+    Line Input #FileNum, DataLine ' read in data 1 line at a time
+        Debug.Print DataLine
+        ActiveCell.Offset(r, 0) = DataLine
+        r = r + 1
+Wend
+Close #1
+''run code after importing file
+''
+OneCharacterForEachCell_ReverseCompliments_SkewValues_Graphs
+''
+End Sub
+Private Sub OneCharacterForEachCell_ReverseCompliments_SkewValues_Graphs()
+'GO DOWN CELLS AND SEPERATE EACH CHARACTER OF EACH CELL INTO SINGLE CELL
+LR = Cells(Rows.count, 1).End(xlUp).Row
+For i = 1 To LR
+str = Sheet1.Cells(i, 1).Value
+    For j = 1 To Len(str)
+        If Sheet1.Cells(j, 2).Value = "" Then
+            Sheet1.Cells(j, 2).Value = UCase(Mid(str, j, 1))
+        ElseIf Sheet1.Cells(j, 2).Value <> "" Then
+            Sheet1.Range("B1").End(xlDown).Offset(1, 0).Value = UCase(Mid(str, j, 1))
+        End If
+    Next j
+Next i
+'REMOVE IMPORTED LINE FEEDS
+Columns("A:A").Delete shift:=xlToLeft
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''
+ReverseComplimentStrands
+End Sub
+Private Sub ReverseComplimentStrands()
+Application.DisplayAlerts = False
+On Error Resume Next
+'delete other worksheets
+Dim WS As Worksheet
+For Each WS In ThisWorkbook.Worksheets
+    If WS.Name <> "Sheet1" Then WS.Delete
+Next
+Application.DisplayAlerts = True
+Sheet1.Activate
+Sheets("Sheet1").Range(Cells(1, 1), Cells(Rows.count, 1)).Copy
+Sheets.Add
+Cells(1, 1).PasteSpecial xlPasteValues
+ActiveSheet.Name = "Reverse_Compliments"
+LR = Cells(Rows.count, 1).End(xlUp).Row
+'reverse patterns of c,t,a,g to get reverse of strand
+For i = 1 To LR + 1
+    If Cells(i, 1).Value = "A" Then Cells(i, 2).Value = "T"
+    If Cells(i, 1).Value = "T" Then Cells(i, 2).Value = "A"
+    If Cells(i, 1).Value = "C" Then Cells(i, 2).Value = "G"
+    If Cells(i, 1).Value = "G" Then Cells(i, 2).Value = "C"
+Next i
+'bottom now top to order as reverse compliment strand
+k = 0
+For j = LR To 1 Step -1
+    Cells(k + 1, 3) = Cells(j, 2)
+k = k + 1
+Next j
+'formatting
+Columns("B:B").Delete shift:=xlToLeft
+
+Range("A1:B1").Cells.Insert shift:=xlDown
+Cells(1, 1).Value = "Template Strand:       5' ---> 3'"
+Cells(1, 2).Value = "Complementary Strand:      3' ---> 5'"
+
+''call function to find skew values for template and compliment strands
+Skew_Values_Count
+Cells(1, 2).Value = "--Skew Values for Template Strand--"
+Cells(1, 4).Value = "--Skew Values for Complimentary Strand--"
+Columns.AutoFit
+Charts_For_TemplateandReverse
+'Sheet1.Select
+End Sub
+Private Sub Charts_For_TemplateandReverse()
+Dim WS As Worksheet: Set WS = ThisWorkbook.Worksheets("Reverse_Compliments")
+WS.Select
+'CLEAR PREVIOUS CHARTS
+Dim obj As Object
+For Each obj In ActiveSheet.Shapes
+    obj.Delete
+Next obj
+'declare variables for chart ranges
+Dim TempRNG, CompRNG As Range
+Dim LR As Long
+LR = WS.Cells(Rows.count, 1).End(xlUp).Row
+
+Set TempRNG = Sheets("Reverse_Compliments").Range("A2:B" & LR)
+Set CompRNG = Sheets("Reverse_Compliments").Range("C2:D" & LR)
+Dim ch, ch2 As Chart
+
+'select data for template chart
+TempRNG.Select 'Template Nucleotide and skew values
+'define chart
+Set ch = WS.Shapes.AddChart2( _
+    Style:=227, _
+    XlChartType:=xlLine, _
+    Left:=[A6].Left, _
+    Top:=[A6].Top, _
+    Width:=[A6:B6].Width, _
+    Height:=[A6:A20].Height, _
+    newlayout:=True).Chart
+'adjust title remove gridlines
+With ch
+    .ChartTitle.Text = Cells(1, 1).Value
+    .Axes(xlCategory).Delete
+    .Axes(xlValue).MajorGridlines.Delete
+End With
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'select data for template chart
+CompRNG.Select 'Template Nucleotide and skew values
+'define chart
+Set ch2 = WS.Shapes.AddChart2( _
+    Style:=227, _
+    XlChartType:=xlLine, _
+    Left:=[C6].Left, _
+    Top:=[C6].Top, _
+    Width:=[C6:D6].Width, _
+    Height:=[C6:C20].Height, _
+    newlayout:=True).Chart
+'adjust title remove gridlines
+With ch2
+    .ChartTitle.Text = Cells(1, 3).Value
+    .Axes(xlCategory).Delete
+    .Axes(xlValue).MajorGridlines.Delete
+End With
+''''''''''''''''''''''''''''''''''''''''''''''''''
+'MIN MAX AND COUNTS FOR TEMPLATE STRAND COPY AND PASTE GRAPH AS PHOTO
+'''''''''''''''''''''''''''''''''''''''''''''''''''
+TempRNG.Copy
+Sheets.Add
+ActiveSheet.Name = "Counts_TemplateStrand"
+Cells(1, 1).PasteSpecial xlPasteAll
+MinMaxCounts
+WS.Select
+ch.ChartArea.Select
+Application.CutCopyMode = False
+ch.ChartArea.Copy
+Sheets("Counts_TemplateStrand").Select
+Range("C7").Select
+ActiveSheet.Pictures.Paste.Select
+WS.Select
+''''''''''''''''''''''''''''''''''''''''''''''''''
+'MIN MAX AND COUNTS FOR COMPLIMENTARY STRAND COPY AND PASTE GRAPH AS PHOTO
+'''''''''''''''''''''''''''''''''''''''''''''''''''
+WS.Activate
+CompRNG.Copy
+Sheets.Add
+ActiveSheet.Name = "Counts_Complimentary_Strand"
+Cells(1, 1).PasteSpecial xlPasteAll
+MinMaxCounts
+WS.Select
+ch2.ChartArea.Select
+Application.CutCopyMode = False
+ch2.ChartArea.Copy
+Sheets("Counts_Complimentary_Strand").Select
+Range("C7").Select
+ActiveSheet.Pictures.Paste.Select
+End Sub
+Private Function Skew_Values_Count()
+Sheets("Reverse_Compliments").Activate
+Dim LR, i, j As Integer
+LR = Cells(Rows.count, 1).End(xlUp).Row
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'''''''''INSERT SKEW VALUES FOR NUCLEOTIDE SEQUENCE'''''''''''''''
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'insert column for skew count values of the Template strand
+Columns("B:B").Insert shift:=xlToRight
+'loop through each cell in column and add up skew values
+For i = 2 To LR + 1
+    If i = 2 Then
+        Cells(i, 2).Value = 0
+    Else
+        If Cells(i, 1).Value = "A" Or Cells(i, 1).Value = "T" Then Cells(i, 2).Value = Cells(i - 1, 2).Value
+        If Cells(i, 1).Value = "C" Then Cells(i, 2).Value = Cells(i - 1, 2).Value + 1
+        If Cells(i, 1).Value = "G" Then Cells(i, 2).Value = Cells(i - 1, 2).Value - 1
+    End If
+Next i
+'do the same for the complementary strand
+For j = 2 To LR + 1
+    If j = 2 Then
+        Cells(j, 4).Value = 0
+    Else
+        If Cells(j, 3).Value = "A" Or Cells(j, 3).Value = "T" Then Cells(j, 4).Value = Cells(j - 1, 4).Value
+        If Cells(j, 3).Value = "C" Then Cells(j, 4).Value = Cells(j - 1, 4).Value + 1
+        If Cells(j, 3).Value = "G" Then Cells(j, 4).Value = Cells(j - 1, 4).Value - 1
+    End If
+Next j
+End Function
+Private Function MinMaxCounts()
+'INSERT VALUES FOR MIN AND MAX SKEW COUNTS AND POSITIONS
+Dim SkewRNG As Range
+LR = Cells(Rows.count, 1).End(xlUp).Row
+Set SkewRNG = Range(Cells(1, 2), Cells(LR, 2))
+
+'find count of min max skews
+Dim MinSkew, MaxSkew As Double
+MaxSkew = Application.WorksheetFunction.Min(SkewRNG)
+'Debug.Print MinSkew
+MinSkew = Application.WorksheetFunction.Max(SkewRNG)
+'Debug.Print MaxSkew
+
+'formatting
+Cells(1, 3).Value = "Number of Maximum Skews: "
+Cells(3, 3).Value = "Number of Minimum Skews: "
+Cells(2, 3).Value = "       At positions: "
+Cells(4, 3).Value = "       At positions: "
+Dim count, m As Long
+k = 3
+m = 3
+For count = 1 To LR
+    If Cells(count, 2).Value = MinSkew Then
+        Cells(2, k + 1) = count
+        Cells(1, 4) = Cells(1, 4) + 1
+        k = k + 1
+    ElseIf Cells(count, 2).Value = MaxSkew Then
+        Cells(4, m + 1) = count
+        Cells(3, 4) = Cells(3, 4) + 1
+        m = m + 1
+    End If
+Next
+Columns.AutoFit
+End Function
