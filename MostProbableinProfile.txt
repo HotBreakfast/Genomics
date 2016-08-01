@@ -1,0 +1,255 @@
+Option Explicit
+Sub ReadMostProbableKmerFile()
+Sheet1.Select
+Sheet1.Cells.Clear
+Sheet1.Range("A3").Value = " ***Nucleotide*** "
+Sheet1.Cells(1, 1).Value = " ***Kmer Length*** "
+Application.DisplayAlerts = False
+Dim sh As Worksheet
+For Each sh In ThisWorkbook.Worksheets
+    If sh.name = "RawText" Then sh.Delete
+Next sh
+Application.DisplayAlerts = True
+Sheets.Add
+ActiveSheet.name = "RawText"
+Range("A1").Select
+Dim FileNum, x As Integer
+Dim DataLine As String
+x = 0
+FileNum = FreeFile()
+Open "C:\Users\Allen\Desktop\Genome Stuff\mostprobablekmer.txt" For Input As #FileNum
+
+While Not EOF(FileNum)
+    Line Input #FileNum, DataLine ' read in data 1 line at a time
+    Cells(1, 1).Offset(x, 0) = DataLine
+    x = x + 1
+    ' decide what to do with dataline,
+    ' depending on what processing you need to do for each case
+Wend
+Dim ws As Worksheet: Set ws = Sheets("RawText")
+Application.CutCopyMode = False
+ws.Activate
+ws.Range("A1").Copy Sheet1.Range("A4")
+ws.Range("A2").Copy Sheet1.Range("A2")
+ws.Activate
+ws.Range("A3:A6").Copy
+Sheet1.Activate
+Sheet1.Range("C1").PasteSpecial xlPasteAll
+Sheet1.Select
+Cells(1, 2).Value = "A:"
+Cells(2, 2).Value = "C:"
+Cells(3, 2).Value = "G:"
+Cells(4, 2).Value = "T:"
+FormatMatrix
+End Sub
+Private Sub FormatMatrix()
+Range("C1").Select
+Dim texta, textg, textc, textt As String
+Dim i, a, g, c, t As Integer
+Dim namea, namec, nameg, namet As Variant
+texta = Range("C1").Value
+textc = Range("c2").Value
+textg = Range("C3").Value
+textt = Range("C4").Value
+namea = Split(texta, " ")
+namec = Split(textc, " ")
+nameg = Split(textg, " ")
+namet = Split(textt, " ")
+For i = 1 To 4
+    If i = 1 Then
+        For a = 0 To UBound(namea)
+            Cells(i, a + 3).Value = namea(a)
+        Next a
+    ElseIf i = 2 Then
+        For c = 0 To UBound(namec)
+            Cells(i, c + 3).Value = namec(c)
+        Next c
+    ElseIf i = 3 Then
+        For g = 0 To UBound(nameg)
+            Cells(i, g + 3).Value = nameg(g)
+        Next g
+    ElseIf i = 4 Then
+        For t = 0 To UBound(namet)
+            Cells(i, t + 3).Value = namet(t)
+        Next t
+    End If
+Next i
+'''''''''''''''''''''''''''''''''''''''''''''''
+Dim LR, LC As Long
+LC = Cells(1, Columns.Count).End(xlToLeft).Column
+Dim Myrng As Range
+Set Myrng = Range(Cells(1, 2), Cells(4, LC))
+Myrng.Borders(xlDiagonalDown).LineStyle = xlNone
+Myrng.Borders(xlDiagonalUp).LineStyle = xlNone
+With Myrng.Borders(xlEdgeLeft)
+    .LineStyle = xlContinuous
+    .ColorIndex = 0
+    .TintAndShade = 0
+    .Weight = xlThin
+End With
+With Myrng.Borders(xlEdgeTop)
+    .LineStyle = xlContinuous
+    .ColorIndex = 0
+    .TintAndShade = 0
+    .Weight = xlThin
+End With
+With Myrng.Borders(xlEdgeBottom)
+    .LineStyle = xlContinuous
+    .ColorIndex = 0
+    .TintAndShade = 0
+    .Weight = xlThin
+End With
+With Myrng.Borders(xlEdgeRight)
+    .LineStyle = xlContinuous
+    .ColorIndex = 0
+    .TintAndShade = 0
+    .Weight = xlThin
+End With
+With Myrng.Borders(xlInsideVertical)
+    .LineStyle = xlContinuous
+    .ColorIndex = 0
+    .TintAndShade = 0
+    .Weight = xlThin
+End With
+With Myrng.Borders(xlInsideHorizontal)
+    .LineStyle = xlContinuous
+    .ColorIndex = 0
+    .TintAndShade = 0
+    .Weight = xlThin
+End With
+With Myrng.Interior
+    .Pattern = xlSolid
+    .PatternColorIndex = xlAutomatic
+    .ThemeColor = xlThemeColorDark1
+    .TintAndShade = -0.249977111117893
+    .PatternTintAndShade = 0
+End With
+With Myrng
+    .HorizontalAlignment = xlGeneral
+    .VerticalAlignment = xlCenter
+    .WrapText = False
+    .Orientation = 0
+    .AddIndent = False
+    .IndentLevel = 0
+    .ShrinkToFit = False
+    .ReadingOrder = xlContext
+    .MergeCells = False
+End With
+KmerSets
+End Sub
+Private Sub KmerSets()
+If Cells(1, 1).Value = "The Most Probable kmer is: " Then Rows("1:1").Delete shift:=xlUp
+Range("A5:AZ1300").Cells.Clear
+Dim i, k, Kmer, Kmer_Length As Integer
+
+'length of K_mers to be generated from string
+Kmer = Cells(2, 1)
+Dim MyStr, Textstr, Result As String
+'nucleotide string
+MyStr = Cells(4, 1).Value
+
+For i = 0 To Len(MyStr) - (Kmer + 1)
+    Dim Kmer_Lenth As Long
+    Kmer_Length = Range("A2").Value
+    'INDETIFY THE TEXT STRING AND SCROLL ONE CHARACTER TO RIGHT AT EACH ITERATION
+    Textstr = Right(MyStr, Len(MyStr) - i)
+    'ADJUST LENGTH SO KMER MATCHES LENGTH FROM CELL a2
+    Result = Left(Textstr, Kmer_Length)
+    If Len(Result) = Kmer_Length Then
+        'PLACE POSSIBLE KMERS BELOW NECLEUOTIDE STRING
+        Cells(i + 4, 1).Offset(1, 0).Value = Result
+    ElseIf Len(Result) <> Kmer_Length Then
+    End If
+Next i
+Range("A1").Select
+EntropiesofKmers
+End Sub
+Private Sub EntropiesofKmers()
+Dim MyStr, p1, p2 As String
+Dim Myrng As Range: Set Myrng = Range("A5:A" & Rows.Count)
+Dim cell As Range
+Dim kLen, i As Integer
+kLen = Cells(2, 1)
+For Each cell In Myrng
+    MyStr = cell.Value
+    For i = 1 To kLen
+        p1 = Left(MyStr, i)
+        p2 = Right(p1, 1)
+        cell.Offset(0, i).Value = p2
+    Next i
+If cell.Offset(1, 0).Value = "" Then GoTo Handler
+Next cell
+Handler:
+ThisWorkbook.ActiveSheet.Range("B5").Activate
+LettersMatchedToProbabilites
+End Sub
+Private Sub LettersMatchedToProbabilites()
+Range("A1").Select
+'align k_mer sets with probability matrix
+Range("B5:B" & Rows.Count).Cells.Insert shift:=xlToRight
+Dim i, j, LR, LC As Long
+LR = Cells(Rows.Count, 3).End(xlUp).Row
+LC = Cells(1, Columns.Count).End(xlToLeft).Column
+For i = 5 To LR
+'go down all rows and replace letter with corresponding probability matrix value
+    For j = 3 To LC
+        'go across all columns and replace letters with corresponding probability matrix value
+        If Cells(i, j).Value = "A" Then
+            Cells(i, j).Value = Cells(1, j).Value
+        ElseIf Cells(i, j).Value = "C" Then
+            Cells(i, j).Value = Cells(2, j).Value
+        ElseIf Cells(i, j).Value = "G" Then
+            Cells(i, j).Value = Cells(3, j).Value
+        ElseIf Cells(i, j).Value = "T" Then
+            Cells(i, j).Value = Cells(4, j).Value
+        End If
+    Next j
+Next i
+MultiplyRows
+End Sub
+Private Sub MultiplyRows()
+Dim Myrng, cell As Range
+
+Dim LC, LR, Mprob As Long
+LC = Cells(1, Columns.Count).End(xlToLeft).Column
+LR = Cells(Rows.Count, 1).End(xlUp).Row
+'clear column B if any values remain
+Set Myrng = Range("B5:B" & LR)
+Myrng.Cells.Clear
+'multiply rows across and place result into column B of that row
+Dim i As Long
+For i = 5 To LR
+    Cells(i, 2).FormulaR1C1 = "=PRODUCT(RC[1]:RC[" & LC & "])"
+    Calculate
+    'change values to values to remove formula from cells
+    Cells(i, 2).Value = Cells(i, 2).Value
+Next i
+'Find max probability value from calculations
+Cells(LR, 2).Offset(1, 0).Formula = "=max(" & "B5:B" & LR & ")"
+'change values to values to get rid of formula in cell
+Cells(LR, 2).Offset(1, 0).Value = Cells(LR, 2).Offset(1, 0).Value
+'use index match to get kmer sequence corresponding to max probability value
+'''''''=INDEX($A$6:$A$199,MATCH(B200,B6:B199,0))
+
+Dim iRng, mRng As Range
+Set iRng = Range(Cells(6, 1), Cells(LR, 1))
+For Each cell In iRng
+Dim MaxProb As String
+MaxProb = Cells(LR, 2).Offset(1, 0).Value
+    If cell.Offset(0, 1).Value = MaxProb Then cell.Copy Cells(LR, 1).Offset(1, 0)
+Next cell
+'Set mRng = Range(Cells(6, 2), Cells(LR, 2))
+
+'Cells(LR, 1).Offset(1, 0).Formula = "=INDEX(" & iRng & "," & "MATCH(" & Range("B" & LR + 1).Value & "," & mRng & ",0))"
+'change values to values to get rid of formula in cell
+'Cells(LR, 1).Offset(1, 0).Value = Cells(LR, 1).Offset(1, 0).Value
+'insert new top row to display the most probable kmer
+Rows("1:1").EntireRow.Insert shift:=xlDown
+Cells(1, 1).Value = "The Most Probable kmer is: "
+Mprob = Cells(Rows.Count, 1).End(xlUp).Row
+Range("A" & Mprob).Copy Cells(1, 2)
+Columns.AutoFit
+Rows.AutoFit
+Columns("A").ColumnWidth = 25
+Range("A1").Select
+End Sub
